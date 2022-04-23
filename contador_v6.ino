@@ -1,6 +1,11 @@
+#include <CountDown.h>
 #include <Password.h>
 #include <Keypad.h>
 
+//CountDown
+CountDown CD;
+
+//KeyPad
 const byte ROWS = 4; // Four rows
 const byte COLS = 4; //  columns
 // Define the Keymap
@@ -15,40 +20,88 @@ byte rowPins[ROWS] = { 9,8,7,6 };
 byte colPins[COLS] = { 5,4,3,2, };
 
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
+
+//Password
 Password password = Password( "1234" );
+
+//Generals
+int gameType;
+bool messageUpdate = false;
+
+//Message update
+const unsigned long eventInterval = 1000;
+unsigned long previousTime = 0;
 
 void setup(){
   Serial.begin(9600);
   keypad.addEventListener(keypadEvent); //add an event listener for this keypad
+  
+  CD.setResolution(CountDown::SECONDS);
 }
 
 void loop(){
   keypad.getKey();
+
+  if(CD.remaining() != 0){
+    if(messageUpdate){
+      unsigned long currentTime = millis();
+      if (currentTime - previousTime >= eventInterval) {
+        Serial.println(CD.remaining());
+        previousTime = currentTime;
+      }
+    } 
+  }
 }
 
 void keypadEvent(KeypadEvent eKey){
   switch (keypad.getState()){
     case PRESSED:
-    
+
   switch (eKey){
     case '*': checkPassword(); break;
-    case '#': password.reset(); break;
-    case 'A': Serial.println("COUNTDOWN"); break;
-    case 'B': Serial.println("BOMB CASE"); break;
-    default: 
-      password.append(eKey);
-      Serial.print("Pressed: ");
-      Serial.println(eKey);
-     }
+    case '#':
+      switch (gameType) {
+        case 1:
+          Serial.println("COUNTDOWN STOP");
+          messageUpdate = false;
+          CD.stop();
+          break;
+        case 2:
+          Serial.println("PASSWORD CLEAR");
+          password.reset();
+          break;  
+      }   
+      break;
+    case 'A':
+      Serial.println("COUNTDOWN");
+      CD.start(60);
+      messageUpdate = true;
+      gameType = 1;
+      break;
+    case 'B':
+      Serial.println("SUITCASE BOMB");
+      gameType = 2;
+      messageUpdate = true;
+      CD.start(60);
+      break;
+    default:
+      switch (gameType) {
+        case 2:
+          password.append(eKey);
+          Serial.println("Tecla: " + String(eKey));
+          break;  
+      } 
+    }
   }
 }
 
 void checkPassword(){
   if (password.evaluate()){
-    Serial.println("Success");
-    //Add code to run if it works
+    Serial.println("SUITCASE DEACTIVATED");
+    CD.stop();
+    messageUpdate = false;
   }else{
-    Serial.println("Wrong");
+    Serial.println("PASSWORD WRONGW");
     password.reset();
   }
 }
