@@ -3,12 +3,12 @@
 #include <Keypad.h>
 
 //CountDown
-CountDown CD;
+CountDown CD[2];
 
 //KeyPad
-const byte ROWS = 4; // Four rows
-const byte COLS = 4; //  columns
-// Define the Keymap
+const byte ROWS = 4;
+const byte COLS = 4;
+
 char keys[ROWS][COLS] = {
   {'1','2','3','A'},
   {'4','5','6','B'},
@@ -25,8 +25,13 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 Password password = Password( "1234" );
 
 //Generals
+int soundSmallPin = 11;
+int soundLargePin = 12;
 int gameType;
 bool messageUpdate = false;
+bool preGame = false;
+bool posGame = false;
+bool bombGame = false;
 
 //Message update
 const unsigned long eventInterval = 1000;
@@ -34,22 +39,31 @@ unsigned long previousTime = 0;
 
 void setup(){
   Serial.begin(9600);
-  keypad.addEventListener(keypadEvent); //add an event listener for this keypad
+  pinMode(soundSmallPin, OUTPUT); 
+  pinMode(soundLargePin, OUTPUT);
+  keypad.addEventListener(keypadEvent);
   
-  CD.setResolution(CountDown::SECONDS);
+  CD[0].setResolution(CountDown::SECONDS);
+  CD[1].setResolution(CountDown::SECONDS);
 }
 
 void loop(){
   keypad.getKey();
 
-  if(CD.remaining() != 0){
+  if(CD[1].remaining() == 0){
+    if(preGame){ preGame = false; countdownGame(); }
+    if(posGame){ posGame = false; soundLarge(); }
+  }else{
     if(messageUpdate){
       unsigned long currentTime = millis();
       if (currentTime - previousTime >= eventInterval) {
-        Serial.println(CD.remaining());
+        Serial.println(CD[1].remaining());
+        if(preGame || bombGame){ soundSmall(); }
+        if(posGame){ soundSmallDouble(); }
+        if(CD[1].remaining() == 6){ posGame = true; } 
         previousTime = currentTime;
       }
-    } 
+    }
   }
 }
 
@@ -64,7 +78,9 @@ void keypadEvent(KeypadEvent eKey){
         case 1:
           Serial.println("COUNTDOWN STOP");
           messageUpdate = false;
-          CD.stop();
+          preGame = false;
+          posGame = false;
+          CD[1].stop();
           break;
         case 2:
           Serial.println("PASSWORD CLEAR");
@@ -72,17 +88,19 @@ void keypadEvent(KeypadEvent eKey){
           break;  
       }   
       break;
-    case 'A':
+    case 'C':
       Serial.println("COUNTDOWN");
-      CD.start(60);
-      messageUpdate = true;
+      countdownPreGame();
       gameType = 1;
       break;
     case 'B':
       Serial.println("SUITCASE BOMB");
       gameType = 2;
+      preGame = false;
+      posGame = false;
+      bombGame = true;
       messageUpdate = true;
-      CD.start(60);
+      CD[1].start(60);
       break;
     default:
       switch (gameType) {
@@ -97,11 +115,54 @@ void keypadEvent(KeypadEvent eKey){
 
 void checkPassword(){
   if (password.evaluate()){
-    Serial.println("SUITCASE DEACTIVATED");
-    CD.stop();
+    Serial.println("SUITCASE BOMB DEACTIVATED");
+    CD[1].stop();
     messageUpdate = false;
+    bombGame = false;
+    preGame = false;
+    posGame = false;
   }else{
-    Serial.println("PASSWORD WRONGW");
+    Serial.println("PASSWORD WRONG");
     password.reset();
   }
+}
+
+void countdownPreGame(){
+  preGame = true;
+  posGame = false;
+  bombGame = false;
+  messageUpdate = true;
+  CD[1].start(5);
+}
+
+void countdownGame(){
+  messageUpdate = true;
+  soundLarge();
+  CD[1].start(60);
+}
+
+void soundSmall(){
+  digitalWrite(12,HIGH);
+  delay(10);
+  digitalWrite(12,LOW); 
+}
+
+void soundSmallDouble(){
+  digitalWrite(12,HIGH);
+  delay(10);
+  digitalWrite(12,LOW);
+  delay(80);
+  digitalWrite(12,HIGH);
+  delay(10);
+  digitalWrite(12,LOW);
+  delay(80);
+  digitalWrite(12,HIGH);
+  delay(10);
+  digitalWrite(12,LOW); 
+}
+
+void soundLarge(){
+  digitalWrite(12,HIGH);
+  delay(1000);
+  digitalWrite(12,LOW); 
 }
