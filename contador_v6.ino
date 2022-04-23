@@ -99,6 +99,7 @@ void keypadEvent(KeypadEvent eKey){
     case 'C':
       if(bombGame){
         Serial.println("ERROR: BOMB SUITCASE ACTIVATED");
+        soundSmallDouble(2);
       }else{
         Serial.println("COUNTDOWN");
         countdownPreGame();
@@ -106,11 +107,13 @@ void keypadEvent(KeypadEvent eKey){
       }
       break;
     case 'B':
-    if(bombGame){
+      if(bombGame){
         Serial.println("ERROR: BOMB SUITCASE ACTIVATED");
+        soundSmallDouble(2);
       }else{
         if(countGame){
           Serial.println("ERROR: COUNTDOWN ACTIVATED");
+          soundSmallDouble(2);
         }else{
           Serial.println("SUITCASE BOMB");
           gameType = 2;
