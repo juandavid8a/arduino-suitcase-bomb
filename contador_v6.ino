@@ -33,6 +33,7 @@ bool preGame = false;
 bool posGame = false;
 bool bombGame = false;
 bool countGame = false;
+int varSeconds;
 
 //Message update
 const unsigned long eventInterval = 1000;
@@ -52,14 +53,15 @@ void loop(){
   keypad.getKey();
 
   if(CD[1].remaining() == 0){
-    if(preGame){ preGame = false; countdownGame(); }
+    if(preGame){ preGame = false; countdownGame(); }else{ countGame = false; }
     if(posGame){ posGame = false; soundLarge(); }
+    if(bombGame){ bombGame = false; varSeconds = 0;}
   }else{
     if(messageUpdate){
       unsigned long currentTime = millis();
       if (currentTime - previousTime >= eventInterval) {
         Serial.println(CD[1].remaining());
-        if(preGame || bombGame){ soundSmall(); }
+        if(preGame || bombGame){ soundSmall(1); }
         if(posGame){ soundSmallDouble(2); }
         if(CD[1].remaining() == 6){ posGame = true; } 
         previousTime = currentTime;
@@ -71,23 +73,39 @@ void loop(){
 void keypadEvent(KeypadEvent eKey){
   switch (keypad.getState()){
     case PRESSED:
-
+      soundSmall(1);
   switch (eKey){
     case '*':
       if(bombGame){
         checkPassword();
+      }else{
+        if(countGame){
+          Serial.println("ERROR: COUNTDOWN ACTIVATED");
+          soundSmallDouble(2);
+        }else{
+          if(varSeconds > 0){
+            Serial.println("Minutos: " + String(varSeconds / 60));
+            gameType = 1; 
+            countdownPreGame();
+          }else{
+            Serial.println("ERROR: NO MINUTES");
+            soundSmallDouble(2);
+          } 
+        } 
       }
       break;
     case '#':
       switch (gameType) {
         case 1:
-          Serial.println("COUNTDOWN STOP");
-          soundSmallDouble(10);
-          messageUpdate = false;
-          countGame = false;
-          preGame = false;
-          posGame = false;
-          CD[1].stop();
+          if(countGame){
+            Serial.println("COUNTDOWN STOP");
+            soundSmallDouble(10);
+            messageUpdate = false;
+            countGame = false;
+            preGame = false;
+            posGame = false;
+            CD[1].stop();
+          }
           break;
         case 2:
           Serial.println("PASSWORD CLEAR");
@@ -96,35 +114,12 @@ void keypadEvent(KeypadEvent eKey){
           break;  
       }   
       break;
-    case 'C':
-      if(bombGame){
-        Serial.println("ERROR: BOMB SUITCASE ACTIVATED");
-        soundSmallDouble(2);
-      }else{
-        Serial.println("COUNTDOWN");
-        countdownPreGame();
-        gameType = 1;
-      }
-      break;
     case 'B':
-      if(bombGame){
-        Serial.println("ERROR: BOMB SUITCASE ACTIVATED");
-        soundSmallDouble(2);
-      }else{
-        if(countGame){
-          Serial.println("ERROR: COUNTDOWN ACTIVATED");
-          soundSmallDouble(2);
-        }else{
-          Serial.println("SUITCASE BOMB");
-          gameType = 2;
-          preGame = false;
-          posGame = false;
-          bombGame = true;
-          messageUpdate = true;
-          CD[1].start(60);        
-        }
-      }
+      bombGameStart();
       break;
+    case 'C':
+      countGameStart();
+      break;      
     default:
       switch (gameType) {
         case 2:
@@ -134,6 +129,50 @@ void keypadEvent(KeypadEvent eKey){
       } 
     }
   }
+}
+
+void countGameStart(){
+  if(bombGame){
+    Serial.println("ERROR: SUITCASE BOMB ACTIVATED");
+    soundSmallDouble(2);
+  }else{
+    Serial.println("COUNTDOWN");
+    soundSmall(1);
+    setNumbers();
+    countdownPreGame();
+    gameType = 1;
+  }
+}
+
+void bombGameStart(){
+  if(bombGame){
+    Serial.println("ERROR: SUITCASE BOMB ACTIVATED");
+    soundSmallDouble(2);
+  }else{
+    if(countGame){
+      Serial.println("ERROR: COUNTDOWN ACTIVATED");
+      soundSmallDouble(2);
+    }else{
+      Serial.println("SUITCASE BOMB");
+      password.reset();
+      soundSmall(1);
+      setNumbers();
+      gameType = 2;
+      preGame = false;
+      posGame = false;
+      bombGame = true;
+      messageUpdate = true;
+      CD[1].start(varSeconds);        
+    }
+  }
+}
+
+void setNumbers(){
+  String number1 = String(keypad.waitForKey());
+  String number2 = String(keypad.waitForKey());
+  String numbers = number1 + number2;
+  Serial.println("Minutos: " + numbers);
+  varSeconds = 60 * numbers.toInt();
 }
 
 void checkPassword(){
@@ -154,9 +193,9 @@ void checkPassword(){
 }
 
 void countdownPreGame(){
-  preGame = true;
   posGame = false;
   bombGame = false;
+  preGame = true;
   countGame = true;
   messageUpdate = true;
   CD[1].start(5);
@@ -165,17 +204,20 @@ void countdownPreGame(){
 void countdownGame(){
   messageUpdate = true;
   soundLarge();
-  CD[1].start(60);
+  CD[1].start(varSeconds);
 }
 
-void soundSmall(){
-  digitalWrite(12,HIGH);
-  delay(10);
-  digitalWrite(12,LOW); 
+void soundSmall(int data){
+  for (data; data >= 1; data--){
+    digitalWrite(12,HIGH);
+    delay(10);
+    digitalWrite(12,LOW);
+    delay(200);
+  } 
 }
 
 void soundSmallDouble(int data){
-   for (data; data >= 0; data--){
+   for (data; data >= 1; data--){
       digitalWrite(12,HIGH);
       delay(10);
       digitalWrite(12,LOW);
